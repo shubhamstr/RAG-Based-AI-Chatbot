@@ -1,0 +1,81 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  background-color: #f7f9fc;
+  color: #1a202c;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.container {
+  width: 90%;
+  max-width: 540px;
+  text-align: center;
+}
+
+header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: #2b6cb0;
+}
+
+header p {
+  color: #4a5568;
+  margin-bottom: 1.5rem;
+}
+
+.card {
+  background: #ffffff;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.card h2 {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.status-indicator {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background-color: #edf2f7;
+  color: #4a5568;
+  font-size: 0.95rem;
+  margin-bottom: 1.25rem;
+  word-break: break-all;
+}
+
+.status-indicator.success {
+  background-color: #c6f6d5;
+  color: #22543d;
+}
+
+.status-indicator.error {
+  background-color: #fed7d7;
+  color: #742a2a;
+}
+
+button {
+  background-color: #3182ce;
+  color: white;
+  border: none;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+button:hover {
+  background-color: #2b6cb0;
+}
+
