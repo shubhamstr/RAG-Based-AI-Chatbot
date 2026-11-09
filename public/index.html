@@ -1,28 +1,98 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RAG-Based AI Chatbot</title>
+  <title>RAG-Based AI Chatbot - Upload Documents</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>RAG-Based AI Chatbot</h1>
-      <p>Express server is up and running!</p>
-    </header>
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+          </svg>
+        </div>
+        <span class="brand-title">RAG-Based AI Chatbot</span>
+      </div>
 
-    <main>
-      <section class="card">
-        <h2>Server Status</h2>
-        <div id="status" class="status-indicator">Checking connection...</div>
-        <button id="check-btn">Ping Health Check</button>
-      </section>
-    </main>
-  </div>
+      <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle color theme" title="Toggle color mode">
+        <!-- Sun icon (shown in dark mode) -->
+        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4"/>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+        </svg>
+        <!-- Moon icon (shown in light mode) -->
+        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Hero & Upload Container -->
+  <main class="main-content">
+    <section class="upload-section">
+      <!-- Title & Subtitle -->
+      <div class="hero-text">
+        <h1 class="hero-title">Ask your PDFs anything.</h1>
+        <p class="hero-subtitle">Upload up to 3 PDFs, then chat with them.</p>
+      </div>
+
+      <!-- Drag & Drop Zone -->
+      <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="File upload dropzone">
+        <input 
+          type="file" 
+          id="file-input" 
+          accept="application/pdf,.pdf" 
+          multiple 
+          hidden 
+        />
+        
+        <div class="drop-zone-content">
+          <div class="upload-icon-wrapper" aria-hidden="true">
+            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+
+          <p class="drop-zone-prompt">Drop PDFs here or click to browse</p>
+          <p class="drop-zone-meta">
+            PDF only &middot; <span id="selection-count">0/3 selected</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Selected Files Preview List -->
+      <div id="file-list" class="file-list" aria-live="polite"></div>
+
+      <!-- Action Button -->
+      <div class="action-container">
+        <button id="upload-btn" class="upload-button" disabled>
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span class="btn-text">Upload</span>
+          <span class="btn-spinner" aria-hidden="true"></span>
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div id="toast" class="toast" role="alert" aria-live="assertive"></div>
 
   <script src="app.js"></script>
 </body>
 </html>
-
