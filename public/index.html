@@ -8,6 +8,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script>
+    (function() {
+      const theme = localStorage.getItem('rag_theme');
+      if (theme === 'light') {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
 </head>
 <body class="min-h-screen flex flex-col font-sans bg-[#f7faf8] text-[#111a14] dark:bg-[#0a130e] dark:text-[#edf4ef] antialiased transition-colors duration-300 selection:bg-emerald-500/20 selection:text-emerald-500 dark:selection:text-emerald-400">
   <!-- Top Navigation Header -->
@@ -122,6 +131,6 @@
     <span id="toast-message"></span>
   </div>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
