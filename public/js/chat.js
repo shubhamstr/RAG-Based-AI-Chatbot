@@ -256,6 +256,19 @@ function formatMarkdown(text) {
 }
 
 /**
+ * Smoothly scroll chat messages container to bottom
+ */
+function scrollToBottom(smooth = true) {
+  if (!chatMessages) return;
+  requestAnimationFrame(() => {
+    chatMessages.scrollTo({
+      top: chatMessages.scrollHeight,
+      behavior: smooth ? 'smooth' : 'auto'
+    });
+  });
+}
+
+/**
  * Append chat message bubble to thread
  */
 function appendMessage(role, text) {
@@ -276,7 +289,7 @@ function appendMessage(role, text) {
   messageWrapper.appendChild(bubble);
 
   chatMessages?.appendChild(messageWrapper);
-  chatMessages?.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+  scrollToBottom(true);
 
   return messageWrapper;
 }
@@ -322,14 +335,16 @@ async function handleChatSubmit(e) {
     if (typingBubble) {
       typingBubble.innerHTML = formatMarkdown(data.reply || "I couldn't process your request.");
     }
+    scrollToBottom(true);
   } catch (err) {
     if (typingBubble) {
       typingBubble.innerHTML = `<span class="text-red-500 dark:text-red-400">Failed to connect to assistant: ${escapeHtml(err.message)}</span>`;
     }
+    scrollToBottom(true);
   } finally {
     if (sendBtn) sendBtn.disabled = false;
     chatInput?.focus();
-    chatMessages?.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+    scrollToBottom(true);
   }
 }
 

@@ -33,6 +33,11 @@
   </script>
   <style>
     /* Custom scrollbar for chat message thread */
+    #chat-messages {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(110, 133, 120, 0.3) transparent;
+      scroll-behavior: smooth;
+    }
     #chat-messages::-webkit-scrollbar {
       width: 6px;
     }
@@ -48,7 +53,7 @@
     }
   </style>
 </head>
-<body class="h-screen flex flex-col font-sans bg-[#f7faf8] text-[#111a14] dark:bg-[#07110c] dark:text-[#edf4ef] antialiased transition-colors duration-300 selection:bg-emerald-500/20 selection:text-emerald-500 dark:selection:text-emerald-400 overflow-hidden">
+<body class="h-screen h-[100dvh] flex flex-col font-sans bg-[#f7faf8] text-[#111a14] dark:bg-[#07110c] dark:text-[#edf4ef] antialiased transition-colors duration-300 selection:bg-emerald-500/20 selection:text-emerald-500 dark:selection:text-emerald-400 overflow-hidden">
   
   <!-- Top Navigation Header -->
   <header class="w-full bg-[#f7faf8] dark:bg-[#07110c] border-b border-[#e5ece8] dark:border-[#13231a] transition-colors duration-300 shrink-0">
@@ -128,46 +133,48 @@
   </div>
 
   <!-- Chat Viewport & Messages Thread -->
-  <main class="flex-1 relative flex flex-col items-center justify-between overflow-hidden">
+  <main class="flex-1 min-h-0 relative flex flex-col w-full overflow-hidden">
     
     <!-- Empty State Indicator (Shown initially) -->
-    <div id="empty-state" class="absolute inset-0 flex items-center justify-center pointer-events-none p-4">
-      <p class="text-sm sm:text-base font-normal text-[#5a7063] dark:text-[#738a7d] tracking-tight select-none">
+    <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-4 pb-20 z-0">
+      <p class="text-sm sm:text-base font-normal text-[#5a7063] dark:text-[#738a7d] tracking-tight select-none text-center">
         Ask a question about your PDFs.
       </p>
     </div>
 
     <!-- Scrollable Messages Container -->
-    <div id="chat-messages" class="w-full max-w-3xl flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-5 hidden">
+    <div id="chat-messages" class="w-full max-w-3xl mx-auto flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-6 space-y-5 relative z-0 overscroll-contain">
       <!-- Dynamic chat bubbles will be appended here -->
     </div>
 
-    <!-- Bottom Input Container -->
-    <div class="w-full max-w-3xl px-4 sm:px-6 pb-6 pt-2 shrink-0">
-      <form id="chat-form" class="relative flex items-center w-full">
-        <div class="w-full rounded-2xl bg-white dark:bg-[#0c1611] border border-[#d2dfd7] dark:border-[#1b3024] focus-within:border-emerald-500 dark:focus-within:border-emerald-500/80 focus-within:ring-2 focus-within:ring-emerald-500/20 shadow-md transition-all duration-200 flex items-center px-3.5 sm:px-4 py-2 sm:py-2.5 gap-2">
-          <input 
-            type="text" 
-            id="chat-input" 
-            class="flex-1 bg-transparent text-sm sm:text-base text-[#111a14] dark:text-[#edf4ef] placeholder-[#6b8275] dark:placeholder-[#485c51] outline-none font-normal" 
-            placeholder="Type your message..." 
-            autocomplete="off"
-            required
-          />
-          <button 
-            type="submit" 
-            id="send-btn" 
-            class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white flex items-center justify-center transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-sm"
-            aria-label="Send message"
-            title="Send message"
-          >
-            <svg class="w-4 h-4 translate-x-[-1px] translate-y-[-0.5px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"/>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-            </svg>
-          </button>
-        </div>
-      </form>
+    <!-- Bottom Sticky Chat Option Container -->
+    <div class="w-full shrink-0 sticky bottom-0 z-10 bg-[#f7faf8] dark:bg-[#07110c] border-t border-[#e5ece8] dark:border-[#13231a] transition-colors duration-300">
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+        <form id="chat-form" class="relative flex items-center w-full">
+          <div class="w-full rounded-2xl bg-white dark:bg-[#0c1611] border border-[#d2dfd7] dark:border-[#1b3024] focus-within:border-emerald-500 dark:focus-within:border-emerald-500/80 focus-within:ring-2 focus-within:ring-emerald-500/20 shadow-sm transition-all duration-200 flex items-center px-3.5 sm:px-4 py-2 sm:py-2.5 gap-2">
+            <input 
+              type="text" 
+              id="chat-input" 
+              class="flex-1 bg-transparent text-sm sm:text-base text-[#111a14] dark:text-[#edf4ef] placeholder-[#6b8275] dark:placeholder-[#485c51] outline-none font-normal" 
+              placeholder="Type your message..." 
+              autocomplete="off"
+              required
+            />
+            <button 
+              type="submit" 
+              id="send-btn" 
+              class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white flex items-center justify-center transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-sm"
+              aria-label="Send message"
+              title="Send message"
+            >
+              <svg class="w-4 h-4 translate-x-[-1px] translate-y-[-0.5px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   </main>
 
