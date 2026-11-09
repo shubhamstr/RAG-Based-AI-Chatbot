@@ -1,25 +1,40 @@
-const express = require('express');
-const path = require('path');
-const cors = require('cors');
-const multer = require('multer');
-const fs = require('fs');
-require('dotenv').config();
+import express, { Request, Response } from 'express';
+import path from 'path';
+import cors from 'cors';
+import multer, { FileFilterCallback } from 'multer';
+import fs from 'fs';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Resolve root directory whether running via ts-node in root or compiled in dist/
+const projectRoot = fs.existsSync(path.join(__dirname, 'public'))
+  ? __dirname
+  : path.resolve(__dirname, '..');
+
 // Ensure uploads directory exists
-const uploadDir = path.join(__dirname, 'uploads');
+const uploadDir = path.join(projectRoot, 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 // Multer storage configuration
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (
+    req: Request,
+    file: Express.Multer.File,
+    cb: (error: Error | null, destination: string) => void
+  ) => {
     cb(null, uploadDir);
   },
-  filename: (req, file, cb) => {
+  filename: (
+    req: Request,
+    file: Express.Multer.File,
+    cb: (error: Error | null, filename: string) => void
+  ) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
     cb(null, `${uniqueSuffix}-${sanitizedName}`);
@@ -27,14 +42,18 @@ const storage = multer.diskStorage({
 });
 
 // File filter: Only allow PDFs
-const fileFilter = (req, file, cb) => {
+const fileFilter = (
+  req: Request,
+  file: Express.Multer.File,
+  cb: FileFilterCallback
+) => {
   const isPdfMime = file.mimetype === 'application/pdf';
   const isPdfExt = path.extname(file.originalname).toLowerCase() === '.pdf';
-  
+
   if (isPdfMime || isPdfExt) {
     cb(null, true);
   } else {
-    cb(new Error('Only PDF files are allowed!'), false);
+    cb(new Error('Only PDF files are allowed!'));
   }
 };
 
@@ -53,13 +72,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from the 'public' directory
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(projectRoot, 'public')));
 
 // Serve uploaded PDF documents for iframe preview
 app.use('/uploads', express.static(uploadDir));
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
     message: 'Server is running',
@@ -68,9 +87,16 @@ app.get('/api/health', (req, res) => {
 });
 
 // List uploaded files endpoint
-app.get('/api/files', (req, res) => {
+interface UploadedFileInfo {
+  fileName: string;
+  originalName: string;
+  size: number;
+  uploadedAt: string;
+}
+
+app.get('/api/files', (req: Request, res: Response) => {
   try {
-    const files = fs.readdirSync(uploadDir).map(fileName => {
+    const files: UploadedFileInfo[] = fs.readdirSync(uploadDir).map((fileName) => {
       const stats = fs.statSync(path.join(uploadDir, fileName));
       return {
         fileName,
@@ -86,20 +112,30 @@ app.get('/api/files', (req, res) => {
 });
 
 // Chat endpoint for RAG query processing
-app.post('/api/chat', (req, res) => {
+interface ChatFile {
+  fileName?: string;
+  originalName?: string;
+}
+
+interface ChatRequestBody {
+  message: string;
+  files?: ChatFile[];
+}
+
+app.post('/api/chat', (req: Request<{}, {}, ChatRequestBody>, res: Response) => {
   const { message, files } = req.body;
   if (!message || typeof message !== 'string') {
     return res.status(400).json({ success: false, error: 'Message is required' });
   }
 
-  const activeFiles = Array.isArray(files) && files.length > 0 
-    ? files.map(f => f.originalName || f.fileName || 'Document').join(', ')
+  const activeFiles = Array.isArray(files) && files.length > 0
+    ? files.map((f: ChatFile) => f.originalName || f.fileName || 'Document').join(', ')
     : 'Mercer Executive Summary.pdf';
 
   // Realistic contextual response generator
   const trimmed = message.trim().toLowerCase();
   let reply = '';
-  
+
   if (trimmed.includes('summary') || trimmed.includes('summarize')) {
     reply = `Based on the uploaded document(s) (${activeFiles}), here is a concise executive summary:\n\n` +
       `1. **Core Findings**: The document outlines strategic benchmarks and performance metrics.\n` +
@@ -117,18 +153,18 @@ app.post('/api/chat', (req, res) => {
   res.json({
     success: true,
     reply,
-    sources: Array.isArray(files) ? files.map(f => f.originalName) : ['Mercer Executive Summary.pdf']
+    sources: Array.isArray(files) ? files.map((f: ChatFile) => f.originalName).filter(Boolean) : ['Mercer Executive Summary.pdf']
   });
 });
 
 // Chat route
-app.get('/chat', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'chat.html'));
+app.get('/chat', (req: Request, res: Response) => {
+  res.sendFile(path.join(projectRoot, 'public', 'chat.html'));
 });
 
 // Upload endpoint for up to 3 PDFs
-app.post('/api/upload', (req, res) => {
-  upload.array('pdfs', 3)(req, res, (err) => {
+app.post('/api/upload', (req: Request, res: Response) => {
+  upload.array('pdfs', 3)(req, res, (err: unknown) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'LIMIT_FILE_COUNT') {
         return res.status(400).json({ success: false, error: 'Maximum 3 files allowed.' });
@@ -137,19 +173,23 @@ app.post('/api/upload', (req, res) => {
         return res.status(400).json({ success: false, error: 'File size exceeds limit of 25MB.' });
       }
       return res.status(400).json({ success: false, error: err.message });
-    } else if (err) {
+    } else if (err instanceof Error) {
       return res.status(400).json({ success: false, error: err.message });
+    } else if (err) {
+      return res.status(400).json({ success: false, error: 'An unknown upload error occurred.' });
     }
 
-    if (!req.files || req.files.length === 0) {
+    const files = req.files as Express.Multer.File[] | undefined;
+
+    if (!files || files.length === 0) {
       return res.status(400).json({ success: false, error: 'Please select at least one PDF file.' });
     }
 
-    if (req.files.length > 3) {
+    if (files.length > 3) {
       return res.status(400).json({ success: false, error: 'You can upload a maximum of 3 PDFs.' });
     }
 
-    const uploadedFiles = req.files.map(file => ({
+    const uploadedFiles = files.map((file) => ({
       originalName: file.originalname,
       fileName: file.filename,
       size: file.size,
@@ -165,8 +205,8 @@ app.post('/api/upload', (req, res) => {
 });
 
 // Fallback route to serve index.html for root requests
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+app.get('/', (req: Request, res: Response) => {
+  res.sendFile(path.join(projectRoot, 'public', 'index.html'));
 });
 
 // Start server
