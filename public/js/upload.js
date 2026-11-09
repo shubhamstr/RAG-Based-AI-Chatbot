@@ -208,14 +208,20 @@ export async function uploadFiles() {
       throw new Error(result.error || 'Upload failed');
     }
 
-    showToast(result.message || 'PDFs uploaded successfully!', 'success');
+    showToast(result.message || 'PDFs uploaded successfully! Redirecting to chat...', 'success');
     if (uploadBtnText) uploadBtnText.textContent = 'Uploaded!';
+
+    // Save uploaded files to localStorage for the chat UI
+    if (result.files && result.files.length > 0) {
+      localStorage.setItem('rag_uploaded_files', JSON.stringify(result.files));
+    }
 
     setTimeout(() => {
       selectedFiles = [];
       updateUI();
       setUploadLoading(false, 'Upload');
-    }, 1500);
+      window.location.href = '/chat';
+    }, 1200);
 
   } catch (error) {
     showToast(error.message || 'Failed to upload files.', 'error');

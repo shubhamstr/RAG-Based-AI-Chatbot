@@ -49,18 +49,28 @@
         </span>
       </div>
 
-      <!-- Theme Toggle Button -->
-      <button id="theme-toggle" type="button" class="w-10 h-10 rounded-xl flex items-center justify-center text-[#5e6f65] dark:text-[#889e92] hover:text-[#111a14] dark:hover:text-[#edf4ef] border border-[#e2e8e4] dark:border-[#1a2f23] hover:bg-[#e2e8e4]/50 dark:hover:bg-[#1a2f23]/60 transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 cursor-pointer" aria-label="Toggle color theme" title="Toggle color mode">
-        <!-- Sun icon (shown in dark mode) -->
-        <svg id="sun-icon" class="w-5 h-5 hidden dark:block transition-transform duration-300 rotate-0 hover:rotate-45" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="4"/>
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-        </svg>
-        <!-- Moon icon (shown in light mode) -->
-        <svg id="moon-icon" class="w-5 h-5 block dark:hidden transition-transform duration-300 -rotate-12 hover:rotate-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3a6 6 0 0 0 9 9 9 0 1 1-9-9Z"/>
-        </svg>
-      </button>
+      <!-- Actions (Chat Link & Theme Toggle) -->
+      <div class="flex items-center gap-2.5">
+        <a href="/chat" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium text-[#5e6f65] dark:text-[#889e92] hover:text-[#111a14] dark:hover:text-[#edf4ef] border border-[#e2e8e4] dark:border-[#1a2f23] hover:bg-[#e2e8e4]/50 dark:hover:bg-[#1a2f23]/60 transition-all duration-200">
+          <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span>Chat</span>
+        </a>
+
+        <!-- Theme Toggle Button -->
+        <button id="theme-toggle" type="button" class="w-10 h-10 rounded-xl flex items-center justify-center text-[#5e6f65] dark:text-[#889e92] hover:text-[#111a14] dark:hover:text-[#edf4ef] border border-[#e2e8e4] dark:border-[#1a2f23] hover:bg-[#e2e8e4]/50 dark:hover:bg-[#1a2f23]/60 transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 cursor-pointer" aria-label="Toggle color theme" title="Toggle color mode">
+          <!-- Sun icon (shown in dark mode) -->
+          <svg id="sun-icon" class="w-5 h-5 hidden dark:block transition-transform duration-300 rotate-0 hover:rotate-45" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+          </svg>
+          <!-- Moon icon (shown in light mode) -->
+          <svg id="moon-icon" class="w-5 h-5 block dark:hidden transition-transform duration-300 -rotate-12 hover:rotate-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3a6 6 0 0 0 9 9 9 0 1 1-9-9Z"/>
+          </svg>
+        </button>
+      </div>
     </div>
   </header>
 
