@@ -1,3 +1,5 @@
+import { retrievalPipeline, RetrievalResult } from './retrieval.service';
+
 export interface ChatFile {
   fileName?: string;
   originalName?: string;
@@ -12,6 +14,7 @@ export interface ChatResponseData {
   success: boolean;
   reply: string;
   sources: string[];
+  context?: string;
 }
 
 export class ChatService {
@@ -25,53 +28,48 @@ export class ChatService {
   }
 
   /**
-   * Generate realistic contextual response for chat / RAG query
+   * Process user query through the retrieval pipeline and generate contextual response
    */
-  public generateReply(message: string, files?: ChatFile[]): ChatResponseData {
+  public async generateReply(message: string, files?: ChatFile[]): Promise<ChatResponseData> {
+    // 1. Run retrieval pipeline to get top-k chunks and LLM context
+    const retrieval = await retrievalPipeline(message);
+
     const activeFiles = Array.isArray(files) && files.length > 0
       ? files.map((f: ChatFile) => f.originalName || f.fileName || 'Document').join(', ')
-      : 'Mercer Executive Summary.pdf';
+      : 'Uploaded Document';
 
-    const trimmed = message.trim().toLowerCase();
+    // 2. Identify sources from retrieved chunks
+    const retrievedSources = retrieval.chunks
+      .map((c) => c.source)
+      .filter((s): s is string => Boolean(s));
+
+    const sources = retrievedSources.length > 0
+      ? Array.from(new Set(retrievedSources))
+      : (Array.isArray(files) && files.length > 0
+          ? files.map((f: ChatFile) => f.originalName).filter(Boolean) as string[]
+          : [activeFiles]);
+
+    // 3. Formulate response (using retrieved context if available, or fallback message)
     let reply = '';
-
-    if (trimmed.includes('summary') || trimmed.includes('summarize')) {
+    if (retrieval.context) {
       reply =
-        `Based on the uploaded document(s) (${activeFiles}), here is a concise executive summary:\n\n` +
-        `1. **Core Findings**: The document outlines strategic benchmarks and performance metrics.\n` +
-        `2. **Key Insights**: Identifies major operational efficiencies, risk assessments, and targeted roadmaps.\n` +
-        `3. **Recommendations**: Prioritizes execution on core workflows while monitoring quarterly milestones.\n\n` +
-        `Would you like to drill down into any specific section?`;
-    } else if (trimmed.includes('who') || trimmed.includes('author') || trimmed.includes('company')) {
-      reply = `According to the documents (${activeFiles}), the analysis focuses on institutional advisory recommendations, stakeholder leadership, and strategic deliverables.`;
-    } else if (
-      trimmed.includes('metric') ||
-      trimmed.includes('number') ||
-      trimmed.includes('revenue') ||
-      trimmed.includes('data')
-    ) {
-      reply =
-        `Relevant figures extracted from **${activeFiles}**:\n` +
-        `- Target efficiency gains: ~18-24%\n` +
-        `- Review intervals: Bi-weekly milestones\n` +
-        `- Primary strategic horizon: 2026-2027 fiscal cycle`;
+        `Based on the retrieved context from your documents:\n\n` +
+        retrieval.chunks
+          .map((chunk, i) => `**Section ${i + 1}** (${chunk.source || 'Document'}):\n> ${chunk.content.trim()}`)
+          .join('\n\n');
     } else {
       reply =
         `I've analyzed **${activeFiles}** regarding your query:\n\n"${message}"\n\n` +
-        `The relevant sections highlight key considerations, actionable guidance, and structured analysis aligned with your query. You can view the full context anytime by clicking the document pill above!`;
+        `Relevant context will be retrieved here once documents are indexed in Qdrant with your OpenAI API key.`;
     }
-
-    const sources = Array.isArray(files) && files.length > 0
-      ? files.map((f: ChatFile) => f.originalName).filter(Boolean) as string[]
-      : ['Mercer Executive Summary.pdf'];
 
     return {
       success: true,
       reply,
-      sources
+      sources,
+      context: retrieval.context,
     };
   }
 }
 
 export const chatService = ChatService.getInstance();
-
