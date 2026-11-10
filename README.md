@@ -220,9 +220,13 @@ npm -v
 
 2. Configure your environment variables in `.env`:
    ```ini
-   PORT=3000
+   PORT=6001
+   NODE_ENV=development
+
+   # OpenAI Configuration
+   OPENAI_API_KEY=your_openai_api_key_here
+   OPENAI_EMBEDDING_MODEL=text-embedding-3-small
    ```
-   *(Optional: If you use a custom port, set e.g. `PORT=6001`)*
 
 ### Running the Application
 
@@ -265,8 +269,8 @@ npm start
 
 The current chat endpoint simulates context-aware RAG responses and is structured for plug-and-play integration with production RAG components:
 
-- [ ] **Text Extraction**: Integrate `pdf-parse` or OCR libraries (e.g., Tesseract) for scanned document parsing.
-- [ ] **Chunking & Embeddings**: Split text into semantic chunks with overlapping tokens and generate vector embeddings (e.g. OpenAI `text-embedding-3`, Cohere, or Google Gemini embeddings).
+- [x] **Text Extraction**: Integrated `pdf-parse` for automated PDF text extraction.
+- [x] **Chunking & Embeddings**: Text chunking with LangChain `RecursiveCharacterTextSplitter` and vector embeddings using OpenAI `text-embedding-3-small`.
 - [ ] **Vector Store**: Connect vector databases like Pinecone, ChromaDB, Qdrant, or pgvector.
 - [ ] **LLM Generation**: Connect with Google Gemini API, OpenAI GPT-4o, or Anthropic Claude for grounded answers with citation page numbers.
 - [ ] **Session & History**: Persist chat conversations across reloads with multi-session memory.

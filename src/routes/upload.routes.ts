@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import path from 'path';
 import { uploadService } from '../services/upload.service';
 import { chunkService } from '../services/chunk.service';
+import { embeddingService } from '../services/embedding.service';
 import { config } from '../config';
 
 const router = Router();
@@ -57,16 +58,41 @@ router.post('/upload', (req: Request, res: Response) => {
         folderName
       );
 
+      // Generate vector embeddings using OpenAI text-embedding-3-small
+      let embeddingsInfo = undefined;
+      let embeddingError: string | null = null;
+
+      if (embeddingService.isConfigured()) {
+        try {
+          embeddingsInfo = await embeddingService.createAndSaveEmbeddings(
+            chunksInfo.chunks,
+            folderPath,
+            folderName
+          );
+        } catch (embErr: any) {
+          console.error('Failed to generate OpenAI embeddings during upload:', embErr);
+          embeddingError = embErr?.message || 'Failed to generate embeddings';
+        }
+      } else {
+        console.warn('OPENAI_API_KEY is not set in environment. Skipping embedding generation.');
+      }
+
       const uploadedFile = uploadService.formatUploadedFile(
         file,
         folderName,
         parsedTextInfo,
-        chunksInfo
+        chunksInfo,
+        embeddingsInfo
       );
+
+      let successMessage = `PDF uploaded, text extracted, and split into ${chunksInfo.totalChunks} chunk${chunksInfo.totalChunks === 1 ? '' : 's'}.`;
+      if (embeddingsInfo) {
+        successMessage = `PDF uploaded, text extracted, split into ${chunksInfo.totalChunks} chunks, and ${embeddingsInfo.totalEmbeddings} embeddings generated with OpenAI (${embeddingsInfo.model}).`;
+      }
 
       return res.json({
         success: true,
-        message: `PDF uploaded, text extracted, and split into ${chunksInfo.totalChunks} chunk${chunksInfo.totalChunks === 1 ? '' : 's'}.`,
+        message: successMessage,
         file: uploadedFile,
         files: [uploadedFile],
         folder: folderName,
@@ -77,7 +103,21 @@ router.post('/upload', (req: Request, res: Response) => {
           relativePath: chunksInfo.relativePath,
           url: chunksInfo.url
         },
-        chunks: chunksInfo.chunks
+        chunks: chunksInfo.chunks,
+        embeddingsInfo: embeddingsInfo ? {
+          totalEmbeddings: embeddingsInfo.totalEmbeddings,
+          model: embeddingsInfo.model,
+          dimensions: embeddingsInfo.dimensions,
+          fileName: embeddingsInfo.fileName,
+          relativePath: embeddingsInfo.relativePath,
+          url: embeddingsInfo.url
+        } : undefined,
+        embeddings: embeddingsInfo?.embeddings,
+        embeddingStatus: embeddingsInfo
+          ? 'generated'
+          : embeddingError
+            ? `error: ${embeddingError}`
+            : 'skipped - OPENAI_API_KEY not configured'
       });
     } catch (processError: any) {
       console.error('Error during PDF parsing or chunking:', processError);

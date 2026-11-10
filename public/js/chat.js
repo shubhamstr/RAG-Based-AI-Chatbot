@@ -168,7 +168,9 @@ export function openFileModal(file) {
     const sizeStr = formatSize(file.size);
     const chunkCount = file.chunksInfo?.totalChunks;
     const chunkStr = typeof chunkCount === 'number' ? ` &middot; ${chunkCount} chunk${chunkCount === 1 ? '' : 's'}` : '';
-    modalFileSubtitle.innerHTML = sizeStr ? `PDF Document &middot; ${sizeStr}${chunkStr}` : `PDF Document${chunkStr}`;
+    const embCount = file.embeddingsInfo?.totalEmbeddings;
+    const embStr = typeof embCount === 'number' ? ` &middot; ${embCount} embeddings` : '';
+    modalFileSubtitle.innerHTML = sizeStr ? `PDF Document &middot; ${sizeStr}${chunkStr}${embStr}` : `PDF Document${chunkStr}${embStr}`;
   }
   if (modalOpenNewtab) {
     modalOpenNewtab.href = fileUrl;

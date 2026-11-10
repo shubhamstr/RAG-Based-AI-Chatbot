@@ -40,6 +40,10 @@ export interface AppConfig {
     allowedMimeTypes: string[];
     allowedExtensions: string[];
   };
+  openai: {
+    apiKey: string;
+    embeddingModel: string;
+  };
 }
 
 export const config: AppConfig = {
@@ -55,6 +59,10 @@ export const config: AppConfig = {
     maxFiles: 1,
     allowedMimeTypes: ['application/pdf'],
     allowedExtensions: ['.pdf']
+  },
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY || '',
+    embeddingModel: process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small'
   }
 };
 

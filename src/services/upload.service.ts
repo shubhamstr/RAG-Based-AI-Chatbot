@@ -8,6 +8,7 @@ import { Request } from 'express';
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { config } from '../config';
 import { ChunksInfo } from './chunk.service';
+import { EmbeddingsInfo } from './embedding.service';
 
 export interface ParsedTextInfo {
   fileName: string;
@@ -31,6 +32,14 @@ export interface UploadedFileInfo {
     relativePath: string;
     url: string;
     totalChunks: number;
+  };
+  embeddingsInfo?: {
+    fileName: string;
+    relativePath: string;
+    url: string;
+    totalEmbeddings: number;
+    model: string;
+    dimensions: number;
   };
 }
 
@@ -191,6 +200,14 @@ export class UploadService {
       relativePath: string;
       url: string;
       totalChunks: number;
+    },
+    embeddingsInfo?: EmbeddingsInfo | {
+      fileName: string;
+      relativePath: string;
+      url: string;
+      totalEmbeddings: number;
+      model: string;
+      dimensions: number;
     }
   ): UploadedFileInfo {
     const relativePath = folderName ? `${folderName}/${file.filename}` : file.filename;
@@ -210,6 +227,14 @@ export class UploadService {
         relativePath: chunksInfo.relativePath,
         url: chunksInfo.url,
         totalChunks: chunksInfo.totalChunks
+      } : undefined,
+      embeddingsInfo: embeddingsInfo ? {
+        fileName: embeddingsInfo.fileName,
+        relativePath: embeddingsInfo.relativePath,
+        url: embeddingsInfo.url,
+        totalEmbeddings: embeddingsInfo.totalEmbeddings,
+        model: embeddingsInfo.model,
+        dimensions: embeddingsInfo.dimensions
       } : undefined
     };
   }
@@ -246,6 +271,24 @@ export class UploadService {
           }
         }
 
+        const embeddingsPath = path.join(fullPath, 'embeddings.json');
+        const hasEmbeddings = fs.existsSync(embeddingsPath);
+        let embeddingsMeta: { totalEmbeddings: number; model: string; dimensions: number } | undefined = undefined;
+
+        if (hasEmbeddings) {
+          try {
+            const raw = fs.readFileSync(embeddingsPath, 'utf-8');
+            const parsedEmbeddings = JSON.parse(raw);
+            embeddingsMeta = {
+              totalEmbeddings: parsedEmbeddings.totalEmbeddings || (Array.isArray(parsedEmbeddings.embeddings) ? parsedEmbeddings.embeddings.length : 0),
+              model: parsedEmbeddings.model || 'text-embedding-3-small',
+              dimensions: parsedEmbeddings.dimensions || 1536
+            };
+          } catch {
+            embeddingsMeta = undefined;
+          }
+        }
+
         for (const subFile of subFiles) {
           if (subFile.isFile() && subFile.name.toLowerCase().endsWith('.pdf')) {
             const filePath = path.join(fullPath, subFile.name);
@@ -271,6 +314,14 @@ export class UploadService {
                 relativePath: `${folderName}/chunks.json`,
                 url: `/uploads/${folderName}/chunks.json`,
                 totalChunks
+              } : undefined,
+              embeddingsInfo: embeddingsMeta ? {
+                fileName: 'embeddings.json',
+                relativePath: `${folderName}/embeddings.json`,
+                url: `/uploads/${folderName}/embeddings.json`,
+                totalEmbeddings: embeddingsMeta.totalEmbeddings,
+                model: embeddingsMeta.model,
+                dimensions: embeddingsMeta.dimensions
               } : undefined
             });
           }
