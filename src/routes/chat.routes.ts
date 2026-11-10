@@ -32,8 +32,10 @@ router.post('/chat', async (req: Request<{}, {}, ChatRequestBody>, res: Response
   res.flushHeaders?.();
 
   const abortController = new AbortController();
-  req.on('close', () => {
-    abortController.abort();
+  res.on('close', () => {
+    if (!res.writableEnded) {
+      abortController.abort();
+    }
   });
 
   try {

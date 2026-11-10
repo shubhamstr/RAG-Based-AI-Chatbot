@@ -376,6 +376,13 @@ async function handleChatSubmit(e) {
       }
     }
 
+    if (buffer.trim().startsWith('data:')) {
+      const dataStr = buffer.trim().slice(5).trim();
+      if (dataStr !== '[DONE]') {
+        try { accumulatedText += JSON.parse(dataStr); } catch (_) {}
+      }
+    }
+
     if (typingBubble) {
       typingBubble.innerHTML = accumulatedText ? formatMarkdown(accumulatedText) : "I couldn't process your request.";
     }
