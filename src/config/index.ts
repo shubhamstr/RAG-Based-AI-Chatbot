@@ -52,7 +52,7 @@ export const config: AppConfig = {
   publicDir: path.join(projectRoot, 'public'),
   upload: {
     maxFileSize: 25 * 1024 * 1024, // 25 MB
-    maxFiles: 3,
+    maxFiles: 1,
     allowedMimeTypes: ['application/pdf'],
     allowedExtensions: ['.pdf']
   }

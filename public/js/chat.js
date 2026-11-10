@@ -71,7 +71,7 @@ async function loadFiles() {
       if (Array.isArray(parsed) && parsed.length > 0) {
         uploadedFiles = parsed.map(f => ({
           ...f,
-          url: f.url || `/uploads/${f.fileName}`
+          url: f.url || (f.relativePath ? `/uploads/${f.relativePath}` : `/uploads/${f.fileName}`)
         }));
       }
     } catch (e) {
@@ -88,7 +88,7 @@ async function loadFiles() {
         if (data.files && data.files.length > 0) {
           uploadedFiles = data.files.map(f => ({
             ...f,
-            url: `/uploads/${f.fileName}`
+            url: f.url || (f.relativePath ? `/uploads/${f.relativePath}` : `/uploads/${f.fileName}`)
           }));
         }
       }

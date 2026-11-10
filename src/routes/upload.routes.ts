@@ -14,9 +14,9 @@ router.get('/files', (req: Request, res: Response) => {
   }
 });
 
-// Upload endpoint for up to configured maximum PDFs
+// Upload endpoint for single PDF
 router.post('/upload', (req: Request, res: Response) => {
-  uploadService.getArrayUploader()(req, res, (err: unknown) => {
+  uploadService.getArrayUploader()(req, res, async (err: unknown) => {
     if (err) {
       const { status, message } = uploadService.parseUploadError(err);
       return res.status(status).json({ success: false, error: message });
@@ -27,26 +27,41 @@ router.post('/upload', (req: Request, res: Response) => {
     if (!files || files.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'Please select at least one PDF file.'
+        error: 'Please select a PDF file.'
       });
     }
 
     if (files.length > config.upload.maxFiles) {
       return res.status(400).json({
         success: false,
-        error: `You can upload a maximum of ${config.upload.maxFiles} PDFs.`
+        error: 'Only a single PDF file can be uploaded.'
       });
     }
 
-    const uploadedFiles = uploadService.formatUploadedFiles(files);
+    const file = files[0];
+    const folderName = (req as any).uploadFolderName || '';
+    const folderPath = (req as any).uploadFolderPath || config.uploadDir;
 
-    return res.json({
-      success: true,
-      message: `${uploadedFiles.length} PDF${uploadedFiles.length > 1 ? 's' : ''} uploaded successfully.`,
-      files: uploadedFiles
-    });
+    try {
+      const parsedTextInfo = await uploadService.parseAndSavePdfText(file, folderPath, folderName);
+      const uploadedFile = uploadService.formatUploadedFile(file, folderName, parsedTextInfo);
+
+      return res.json({
+        success: true,
+        message: 'PDF uploaded and parsed successfully.',
+        file: uploadedFile,
+        files: [uploadedFile],
+        folder: folderName,
+        parsedTextFile: parsedTextInfo
+      });
+    } catch (parseError: any) {
+      console.error('Error during PDF parsing or writing text file:', parseError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to process and parse text from the uploaded PDF.'
+      });
+    }
   });
 });
 
 export default router;
-

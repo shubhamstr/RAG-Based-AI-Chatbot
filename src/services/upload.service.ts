@@ -1,14 +1,30 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import multer, { FileFilterCallback } from 'multer';
 import { Request } from 'express';
+// Use direct lib import to avoid index.js debug auto-run in Node 22
+// @ts-ignore
+import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { config } from '../config';
+
+export interface ParsedTextInfo {
+  fileName: string;
+  relativePath: string;
+  url: string;
+  charCount: number;
+  pageCount: number;
+}
 
 export interface UploadedFileInfo {
   fileName: string;
   originalName: string;
+  folderName: string;
+  relativePath: string;
+  url: string;
   size: number;
   uploadedAt: string;
+  parsedTextFile?: ParsedTextInfo;
 }
 
 export class UploadService {
@@ -37,7 +53,7 @@ export class UploadService {
   }
 
   /**
-   * Initialize Multer with storage configuration and PDF-only filters
+   * Initialize Multer with dynamic subfolder creation per upload and random PDF naming
    */
   private initMulter(): multer.Multer {
     const storage = multer.diskStorage({
@@ -46,16 +62,31 @@ export class UploadService {
         file: Express.Multer.File,
         cb: (error: Error | null, destination: string) => void
       ) => {
-        cb(null, config.uploadDir);
+        try {
+          this.ensureUploadDirExists();
+
+          // Reuse the folder created for this request or create a new unique folder
+          if (!(req as any).uploadFolderPath) {
+            const folderName = `upload_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+            const folderPath = path.join(config.uploadDir, folderName);
+            fs.mkdirSync(folderPath, { recursive: true });
+            (req as any).uploadFolderName = folderName;
+            (req as any).uploadFolderPath = folderPath;
+          }
+
+          cb(null, (req as any).uploadFolderPath);
+        } catch (err: any) {
+          cb(err, '');
+        }
       },
       filename: (
         req: Request,
         file: Express.Multer.File,
         cb: (error: Error | null, filename: string) => void
       ) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-        cb(null, `${uniqueSuffix}-${sanitizedName}`);
+        // Generate random name with .pdf extension
+        const randomFileName = `${crypto.randomBytes(16).toString('hex')}.pdf`;
+        cb(null, randomFileName);
       }
     });
 
@@ -87,41 +118,138 @@ export class UploadService {
   }
 
   /**
-   * Get Multer middleware instance for handling array uploads
+   * Parse text from the uploaded PDF and write it to one txt file in that same folder
+   */
+  public async parseAndSavePdfText(
+    file: Express.Multer.File,
+    folderPath: string,
+    folderName: string
+  ): Promise<ParsedTextInfo> {
+    const dataBuffer = await fs.promises.readFile(file.path);
+    let extractedText = '';
+    let pageCount = 0;
+
+    try {
+      const parsed = await pdfParse(dataBuffer);
+      extractedText = (parsed.text || '').trim();
+      pageCount = parsed.numpages || 1;
+    } catch (err: any) {
+      console.error(`Failed to parse PDF text for ${file.originalname}:`, err);
+      extractedText = `[Parsing Note: Could not extract text from this PDF file. Reason: ${err?.message || 'Unknown error'}]`;
+    }
+
+    const textFileName = 'extracted_text.txt';
+    const textFilePath = path.join(folderPath, textFileName);
+    const textRelativePath = `${folderName}/${textFileName}`;
+    const textUrl = `/uploads/${folderName}/${textFileName}`;
+
+    const content = [
+      '================================================================================',
+      `Original Document: ${file.originalname}`,
+      `Saved PDF File:    ${file.filename}`,
+      `Folder:            ${folderName}`,
+      `Page Count:        ${pageCount}`,
+      `Extracted At:      ${new Date().toISOString()}`,
+      '================================================================================\n',
+      extractedText
+    ].join('\n');
+
+    await fs.promises.writeFile(textFilePath, content, 'utf-8');
+
+    return {
+      fileName: textFileName,
+      relativePath: textRelativePath,
+      url: textUrl,
+      charCount: extractedText.length,
+      pageCount
+    };
+  }
+
+  /**
+   * Get Multer middleware instance for handling uploads
    */
   public getArrayUploader(fieldName: string = 'pdfs', maxCount: number = config.upload.maxFiles) {
     return this.uploadMiddleware.array(fieldName, maxCount);
   }
 
   /**
-   * Transform uploaded Multer files into structured response items
+   * Format uploaded file into structured response item
    */
-  public formatUploadedFiles(files: Express.Multer.File[]): UploadedFileInfo[] {
-    return files.map((file) => ({
-      originalName: file.originalname,
+  public formatUploadedFile(
+    file: Express.Multer.File,
+    folderName: string,
+    parsedTextInfo?: ParsedTextInfo
+  ): UploadedFileInfo {
+    const relativePath = folderName ? `${folderName}/${file.filename}` : file.filename;
+    const url = `/uploads/${relativePath}`;
+
+    return {
       fileName: file.filename,
+      originalName: file.originalname,
+      folderName,
+      relativePath,
+      url,
       size: file.size,
-      uploadedAt: new Date().toISOString()
-    }));
+      uploadedAt: new Date().toISOString(),
+      parsedTextFile: parsedTextInfo
+    };
   }
 
   /**
-   * List all uploaded files currently in the uploads directory
+   * List all uploaded files currently in the uploads directory (including subdirectories)
    */
   public getUploadedFiles(): UploadedFileInfo[] {
     this.ensureUploadDirExists();
-    const fileNames = fs.readdirSync(config.uploadDir);
+    const entries = fs.readdirSync(config.uploadDir, { withFileTypes: true });
+    const results: UploadedFileInfo[] = [];
 
-    return fileNames.map((fileName) => {
-      const filePath = path.join(config.uploadDir, fileName);
-      const stats = fs.statSync(filePath);
-      return {
-        fileName,
-        originalName: fileName.replace(/^\d+-\d+-/, ''),
-        size: stats.size,
-        uploadedAt: stats.mtime.toISOString()
-      };
-    });
+    for (const entry of entries) {
+      const fullPath = path.join(config.uploadDir, entry.name);
+
+      if (entry.isDirectory()) {
+        const folderName = entry.name;
+        const subFiles = fs.readdirSync(fullPath, { withFileTypes: true });
+        const txtPath = path.join(fullPath, 'extracted_text.txt');
+        const hasTxt = fs.existsSync(txtPath);
+
+        for (const subFile of subFiles) {
+          if (subFile.isFile() && subFile.name.toLowerCase().endsWith('.pdf')) {
+            const filePath = path.join(fullPath, subFile.name);
+            const stats = fs.statSync(filePath);
+
+            results.push({
+              fileName: subFile.name,
+              originalName: subFile.name,
+              folderName,
+              relativePath: `${folderName}/${subFile.name}`,
+              url: `/uploads/${folderName}/${subFile.name}`,
+              size: stats.size,
+              uploadedAt: stats.mtime.toISOString(),
+              parsedTextFile: hasTxt ? {
+                fileName: 'extracted_text.txt',
+                relativePath: `${folderName}/extracted_text.txt`,
+                url: `/uploads/${folderName}/extracted_text.txt`,
+                charCount: 0,
+                pageCount: 0
+              } : undefined
+            });
+          }
+        }
+      } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.pdf')) {
+        const stats = fs.statSync(fullPath);
+        results.push({
+          fileName: entry.name,
+          originalName: entry.name.replace(/^\d+-\d+-/, ''),
+          folderName: '',
+          relativePath: entry.name,
+          url: `/uploads/${entry.name}`,
+          size: stats.size,
+          uploadedAt: stats.mtime.toISOString()
+        });
+      }
+    }
+
+    return results;
   }
 
   /**
@@ -130,7 +258,7 @@ export class UploadService {
   public parseUploadError(err: unknown): { status: number; message: string } {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'LIMIT_FILE_COUNT') {
-        return { status: 400, message: `Maximum ${config.upload.maxFiles} files allowed.` };
+        return { status: 400, message: `Only ${config.upload.maxFiles} PDF file can be uploaded at a time.` };
       }
       if (err.code === 'LIMIT_FILE_SIZE') {
         const mb = Math.round(config.upload.maxFileSize / (1024 * 1024));
@@ -145,4 +273,3 @@ export class UploadService {
 }
 
 export const uploadService = UploadService.getInstance();
-

@@ -1,10 +1,10 @@
 /**
- * File Selection, Validation, Drag & Drop, and Upload Handler
+ * File Selection, Validation, Drag & Drop, and Upload Handler (Single PDF)
  */
 
 import { showToast } from './toast.js';
 
-const MAX_FILES = 3;
+const MAX_FILES = 1;
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB per file limit
 
 let selectedFiles = [];
@@ -38,7 +38,7 @@ export function formatFileSize(bytes) {
  * @returns {string}
  */
 export function escapeHtml(str) {
-  return str.replace(/[&<>"']/g, (m) => ({
+  return String(str).replace(/[&<>"']/g, (m) => ({
     '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
@@ -109,52 +109,32 @@ export function removeFile(index) {
 }
 
 /**
- * Handle and validate incoming files (PDF only, duplicates, max limits)
+ * Handle and validate incoming files (Single PDF only)
  * @param {FileList | File[]} files
  */
 export function handleFiles(files) {
   const fileArray = Array.from(files);
+  if (fileArray.length === 0) return;
 
-  let nonPdfCount = 0;
-  let oversizeCount = 0;
-  let duplicateCount = 0;
-  let addedCount = 0;
+  const targetFile = fileArray[0];
 
-  for (const file of fileArray) {
-    if (selectedFiles.length >= MAX_FILES) {
-      showToast(`Maximum ${MAX_FILES} files allowed. Extra files were ignored.`, 'error');
-      break;
-    }
-
-    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-    if (!isPdf) {
-      nonPdfCount++;
-      continue;
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      oversizeCount++;
-      continue;
-    }
-
-    const isDuplicate = selectedFiles.some(f => f.name === file.name && f.size === file.size);
-    if (isDuplicate) {
-      duplicateCount++;
-      continue;
-    }
-
-    selectedFiles.push(file);
-    addedCount++;
+  const isPdf = targetFile.type === 'application/pdf' || targetFile.name.toLowerCase().endsWith('.pdf');
+  if (!isPdf) {
+    showToast('Only PDF files are supported.', 'error');
+    return;
   }
 
-  if (nonPdfCount > 0) {
-    showToast(`Only PDF files are supported. ${nonPdfCount} non-PDF file(s) ignored.`, 'error');
-  } else if (oversizeCount > 0) {
-    showToast(`Files cannot exceed 25MB. ${oversizeCount} large file(s) ignored.`, 'error');
-  } else if (duplicateCount > 0 && addedCount === 0) {
-    showToast('This file is already selected.', 'error');
+  if (targetFile.size > MAX_FILE_SIZE) {
+    showToast('File size cannot exceed 25MB.', 'error');
+    return;
   }
 
+  if (fileArray.length > 1) {
+    showToast('Only a single PDF can be uploaded. First PDF selected.', 'info');
+  }
+
+  // Replace current selection with the new file
+  selectedFiles = [targetFile];
   updateUI();
 }
 
@@ -190,11 +170,9 @@ export async function uploadFiles() {
   if (selectedFiles.length === 0 || uploadBtn?.hasAttribute('disabled')) return;
 
   const formData = new FormData();
-  selectedFiles.forEach(file => {
-    formData.append('pdfs', file);
-  });
+  formData.append('pdfs', selectedFiles[0]);
 
-  setUploadLoading(true, 'Uploading...');
+  setUploadLoading(true, 'Uploading & Parsing...');
 
   try {
     const response = await fetch('/api/upload', {
@@ -208,10 +186,10 @@ export async function uploadFiles() {
       throw new Error(result.error || 'Upload failed');
     }
 
-    showToast(result.message || 'PDFs uploaded successfully! Redirecting to chat...', 'success');
+    showToast(result.message || 'PDF uploaded and parsed successfully! Redirecting...', 'success');
     if (uploadBtnText) uploadBtnText.textContent = 'Uploaded!';
 
-    // Save uploaded files to localStorage for the chat UI
+    // Save uploaded file info to localStorage for the chat UI
     if (result.files && result.files.length > 0) {
       localStorage.setItem('rag_uploaded_files', JSON.stringify(result.files));
     }
@@ -224,7 +202,7 @@ export async function uploadFiles() {
     }, 1200);
 
   } catch (error) {
-    showToast(error.message || 'Failed to upload files.', 'error');
+    showToast(error.message || 'Failed to upload file.', 'error');
     setUploadLoading(false, 'Upload');
   }
 }
@@ -237,10 +215,6 @@ export function initUpload() {
 
   // DropZone click triggers hidden file input
   dropZone.addEventListener('click', () => {
-    if (selectedFiles.length >= MAX_FILES) {
-      showToast(`You have already selected the maximum of ${MAX_FILES} PDFs. Remove one to replace it.`, 'error');
-      return;
-    }
     fileInput.click();
   });
 
@@ -299,4 +273,3 @@ export function initUpload() {
   // Initial render
   updateUI();
 }
-
