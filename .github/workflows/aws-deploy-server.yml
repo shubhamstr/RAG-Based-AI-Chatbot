@@ -1,0 +1,129 @@
+name: Build and Deploy Server to AWS ECR and EC2
+
+on:
+  # push:
+  #   branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    name: Build and Push Server Image to ECR
+    runs-on: ubuntu-latest
+    outputs:
+      registry: ${{ steps.login-ecr.outputs.registry }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Generate server .env file
+        run: |
+          echo "PORT=6001" > .env
+          echo "NODE_ENV=production" >> .env
+          echo "UPLOAD_DIR=uploads" >> .env
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+          echo "OPENAI_CHAT_MODEL=${{ vars.OPENAI_CHAT_MODEL || 'gpt-4o-mini' }}" >> .env
+          echo "OPENAI_EMBEDDING_MODEL=${{ vars.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small' }}" >> .env
+          echo "QDRANT_URL=http://qdrant-vector-db:6333" >> .env
+          echo "QDRANT_COLLECTION_NAME=${{ vars.QDRANT_COLLECTION_NAME || 'rag_documents' }}" >> .env
+          echo "QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY || '' }}" >> .env
+          echo "Server environment configured."
+
+      - name: Build and Push Server Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_SERVER || 'rag-chatbot-server' }}:latest
+            ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_SERVER || 'rag-chatbot-server' }}:${{ github.sha }}
+
+  deploy:
+    name: Deploy Server to AWS EC2
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Get ECR login token
+        id: ecr-token
+        run: |
+          TOKEN=$(aws ecr get-login-password --region ${{ vars.AWS_REGION || 'us-east-1' }})
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+
+      - name: Execute deployment via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          ECR_PASSWORD: ${{ steps.ecr-token.outputs.token }}
+          REGISTRY: ${{ needs.build-and-push.outputs.registry }}
+          IMAGE_NAME: ${{ vars.ECR_REPOSITORY_SERVER || 'rag-chatbot-server' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_CHAT_MODEL: ${{ vars.OPENAI_CHAT_MODEL || 'gpt-4o-mini' }}
+          OPENAI_EMBEDDING_MODEL: ${{ vars.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small' }}
+          QDRANT_COLLECTION_NAME: ${{ vars.QDRANT_COLLECTION_NAME || 'rag_documents' }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY || '' }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: ECR_PASSWORD,REGISTRY,IMAGE_NAME,OPENAI_API_KEY,OPENAI_CHAT_MODEL,OPENAI_EMBEDDING_MODEL,QDRANT_COLLECTION_NAME,QDRANT_API_KEY
+          script: |
+            # Ensure shared docker network exists
+            docker network create rag-network || true
+
+            # Ensure Qdrant Vector DB container is running; start if not running
+            if ! docker ps --filter "name=qdrant-vector-db" | grep -q "qdrant-vector-db"; then
+              echo "Starting Qdrant Vector DB container..."
+              docker pull qdrant/qdrant:latest
+              docker run -d --name qdrant-vector-db --network rag-network \
+                --restart always \
+                -v qdrant_storage:/qdrant/storage \
+                -p 6002:6333 \
+                -p 6003:6334 \
+                -e QDRANT__SERVICE__HTTP_PORT=6333 \
+                qdrant/qdrant:latest
+            fi
+
+            # Authenticate Docker to Amazon ECR on EC2
+            echo "$ECR_PASSWORD" | docker login --username AWS --password-stdin $REGISTRY
+
+            # Pull the latest image
+            docker pull $REGISTRY/$IMAGE_NAME:latest
+
+            # Restart container
+            docker rm -f rag-chatbot-server || true
+            docker run -d --name rag-chatbot-server --network rag-network \
+              --restart always \
+              -v rag_uploads:/app/uploads \
+              -p 6001:6001 \
+              -e PORT=6001 \
+              -e NODE_ENV=production \
+              -e OPENAI_API_KEY="$OPENAI_API_KEY" \
+              -e OPENAI_CHAT_MODEL="$OPENAI_CHAT_MODEL" \
+              -e OPENAI_EMBEDDING_MODEL="$OPENAI_EMBEDDING_MODEL" \
+              -e QDRANT_URL="http://qdrant-vector-db:6333" \
+              -e QDRANT_COLLECTION_NAME="$QDRANT_COLLECTION_NAME" \
+              -e QDRANT_API_KEY="$QDRANT_API_KEY" \
+              -e UPLOAD_DIR="/app/uploads" \
+              $REGISTRY/$IMAGE_NAME:latest
+
+            # Verify container status
+            sleep 3
+            docker ps --filter "name=rag-chatbot-server"
+            docker logs --tail 20 rag-chatbot-server

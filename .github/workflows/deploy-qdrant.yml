@@ -1,0 +1,39 @@
+name: Deploy Qdrant (One-Time)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-qdrant:
+    name: Deploy Qdrant to AWS EC2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute Qdrant deployment via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Create shared docker network
+            docker network create rag-network || true
+
+            # Pull official Qdrant image directly from Docker Hub onto EC2
+            docker pull qdrant/qdrant:latest
+
+            # Stop and remove existing container if running
+            docker rm -f qdrant-vector-db || true
+
+            # Run Qdrant Vector DB container
+            docker run -d --name qdrant-vector-db --network rag-network \
+              --restart always \
+              -v qdrant_storage:/qdrant/storage \
+              -p 6002:6333 \
+              -p 6003:6334 \
+              -e QDRANT__SERVICE__HTTP_PORT=6333 \
+              qdrant/qdrant:latest
+
+            # Verify container status
+            sleep 3
+            docker ps --filter "name=qdrant-vector-db"
+            docker logs --tail 20 qdrant-vector-db

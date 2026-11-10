@@ -19,6 +19,7 @@ An end-to-end, production-ready web application designed for ingesting, indexing
   - [Starting Qdrant Vector Database](#-starting-qdrant-vector-database-docker)
   - [Running the Application](#running-the-application)
 - [Usage Guide](#-usage-guide)
+- [AWS Deployment Pipeline](#-aws-deployment-pipeline-ecr--ec2)
 - [Implementation Status & Roadmap](#-implementation-status--roadmap)
 - [Contributing](#-contributing)
 - [License](#-license)
@@ -387,6 +388,18 @@ npm start
    - Click on any document pill in the toolbar to open the **PDF Preview Modal** and review the original file.
 4. **Switch Color Theme**:
    - Click the Sun/Moon toggle in the upper-right corner to toggle between Dark and Light modes anytime.
+
+---
+
+## ☁️ AWS Deployment Pipeline (ECR & EC2)
+
+The repository includes a production-ready CI/CD pipeline using **GitHub Actions**, **AWS ECR**, and **AWS EC2**:
+
+- **Node.js Express Server**: Packaged into a lightweight, multi-stage Docker container (`Dockerfile`), automatically built and pushed to **AWS ECR** and deployed to EC2 via [`.github/workflows/aws-deploy-server.yml`](.github/workflows/aws-deploy-server.yml).
+- **Qdrant Vector Database**: Official `qdrant/qdrant:latest` image pulled directly from **Docker Hub** onto the EC2 instance inside the shared `rag-network` via [`.github/workflows/deploy-qdrant.yml`](.github/workflows/deploy-qdrant.yml) with persistent volume storage (`qdrant_storage`).
+- **Network & Service Connectivity**: Both services run in containers on EC2 connected via the `rag-network` Docker bridge network, communicating directly and securely.
+
+👉 **For detailed step-by-step setup instructions, IAM policies, and GitHub Secrets configuration, see the [AWS Deployment Guide](DEPLOYMENT.md).**
 
 ---
 

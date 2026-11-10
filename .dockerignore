@@ -1,0 +1,14 @@
+node_modules
+dist
+uploads
+qdrant_storage
+.git
+.gitignore
+.env
+.env.*
+*.log
+.github
+docker-compose*.yml
+README.md
+DEPLOYMENT.md
+

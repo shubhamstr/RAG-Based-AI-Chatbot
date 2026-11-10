@@ -12,7 +12,8 @@
     "qdrant:restart": "docker compose restart",
     "qdrant:logs": "docker compose logs -f qdrant",
     "qdrant:status": "docker compose ps",
-    "qdrant:docker": "docker run -d --name qdrant-vector-db -p 6002:6333 -p 6003:6334 -v qdrant_storage:/qdrant/storage qdrant/qdrant:latest"
+    "qdrant:docker": "docker run -d --name qdrant-vector-db -p 6002:6333 -p 6003:6334 -v qdrant_storage:/qdrant/storage qdrant/qdrant:latest",
+    "docker:build": "docker build -t rag-based-ai-chatbot:latest ."
   },
   "keywords": [],
   "author": "",
