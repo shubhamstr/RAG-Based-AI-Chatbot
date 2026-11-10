@@ -1,4 +1,5 @@
 import { retrievalPipeline, RetrievalResult } from './retrieval.service';
+import { generateAnswer } from './generation.service';
 
 export interface ChatFile {
   fileName?: string;
@@ -49,19 +50,8 @@ export class ChatService {
           ? files.map((f: ChatFile) => f.originalName).filter(Boolean) as string[]
           : [activeFiles]);
 
-    // 3. Formulate response (using retrieved context if available, or fallback message)
-    let reply = '';
-    if (retrieval.context) {
-      reply =
-        `Based on the retrieved context from your documents:\n\n` +
-        retrieval.chunks
-          .map((chunk, i) => `**Section ${i + 1}** (${chunk.source || 'Document'}):\n> ${chunk.content.trim()}`)
-          .join('\n\n');
-    } else {
-      reply =
-        `I've analyzed **${activeFiles}** regarding your query:\n\n"${message}"\n\n` +
-        `Relevant context will be retrieved here once documents are indexed in Qdrant with your OpenAI API key.`;
-    }
+    // 3. Generate answer using OpenAI chat model with prompt (context + query)
+    const reply = await generateAnswer(message, retrieval.context);
 
     return {
       success: true,
