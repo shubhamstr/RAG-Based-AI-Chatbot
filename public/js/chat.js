@@ -249,6 +249,10 @@ export function closeFileModal() {
  */
 function formatMarkdown(text) {
   let html = escapeHtml(text);
+  // Code blocks: ```language ... ```
+  html = html.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, '<pre class="my-2 p-3 rounded-lg bg-[#0c1611] text-[#edf4ef] dark:bg-[#050b08] font-mono text-xs overflow-x-auto"><code>$2</code></pre>');
+  // Inline code: `code`
+  html = html.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-[#e8f0eb] dark:bg-[#16291f] text-emerald-700 dark:text-emerald-300 font-mono text-xs">$1</code>');
   // Bold: **text**
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-emerald-700 dark:text-emerald-300">$1</strong>');
   // Bullet points
@@ -289,7 +293,7 @@ function appendMessage(role, text) {
     ? 'max-w-[85%] sm:max-w-[75%] px-4 py-2.5 rounded-2xl rounded-tr-sm bg-emerald-600 text-white text-sm shadow-sm'
     : 'max-w-[85%] sm:max-w-[80%] px-4 py-3 rounded-2xl rounded-tl-sm bg-white dark:bg-[#101b15] border border-[#d8e3dc] dark:border-[#1d3326] text-[#111a14] dark:text-[#ddead4] text-sm shadow-sm leading-relaxed';
 
-  bubble.innerHTML = formatMarkdown(text);
+  bubble.innerHTML = text ? formatMarkdown(text) : '';
   messageWrapper.appendChild(bubble);
 
   chatMessages?.appendChild(messageWrapper);
@@ -299,20 +303,24 @@ function appendMessage(role, text) {
 }
 
 /**
- * Send chat query to server
+ * Send chat query to server and stream response
  */
 async function handleChatSubmit(e) {
   e.preventDefault();
   const query = chatInput?.value.trim();
   if (!query) return;
 
+  // Prevent multiple simultaneous submissions
+  if (sendBtn) sendBtn.disabled = true;
+  if (chatInput) chatInput.disabled = true;
+
   // Append user message
   appendMessage('user', query);
   chatInput.value = '';
 
-  // Append temporary bot typing indicator
-  const typingIndicator = appendMessage('assistant', 'Thinking...');
-  const typingBubble = typingIndicator.querySelector('div');
+  // Append assistant message with temporary typing dots
+  const messageWrapper = appendMessage('assistant', '');
+  const typingBubble = messageWrapper.querySelector('div');
   if (typingBubble) {
     typingBubble.innerHTML = `
       <div class="flex items-center gap-1.5 py-1">
@@ -323,7 +331,7 @@ async function handleChatSubmit(e) {
     `;
   }
 
-  if (sendBtn) sendBtn.disabled = true;
+  const cursorHtml = '<span class="inline-block w-1.5 h-4 ml-0.5 align-middle bg-emerald-500 animate-pulse rounded-xs"></span>';
 
   try {
     const res = await fetch('/api/chat', {
@@ -335,19 +343,52 @@ async function handleChatSubmit(e) {
       })
     });
 
-    const data = await res.json();
-    if (typingBubble) {
-      typingBubble.innerHTML = formatMarkdown(data.reply || "I couldn't process your request.");
+    if (!res.ok) {
+      throw new Error(`Server returned status ${res.status}`);
     }
-    scrollToBottom(true);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let accumulatedText = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) continue;
+        const dataStr = trimmed.slice(5).trim();
+        if (dataStr === '[DONE]') break;
+
+        try {
+          accumulatedText += JSON.parse(dataStr);
+          if (typingBubble) {
+            typingBubble.innerHTML = formatMarkdown(accumulatedText) + cursorHtml;
+          }
+          scrollToBottom(false);
+        } catch (_) {}
+      }
+    }
+
+    if (typingBubble) {
+      typingBubble.innerHTML = accumulatedText ? formatMarkdown(accumulatedText) : "I couldn't process your request.";
+    }
   } catch (err) {
     if (typingBubble) {
-      typingBubble.innerHTML = `<span class="text-red-500 dark:text-red-400">Failed to connect to assistant: ${escapeHtml(err.message)}</span>`;
+      typingBubble.innerHTML = `<span class="text-red-500 dark:text-red-400">Failed to connect: ${escapeHtml(err.message)}</span>`;
     }
-    scrollToBottom(true);
   } finally {
     if (sendBtn) sendBtn.disabled = false;
-    chatInput?.focus();
+    if (chatInput) {
+      chatInput.disabled = false;
+      chatInput.focus();
+    }
     scrollToBottom(true);
   }
 }
