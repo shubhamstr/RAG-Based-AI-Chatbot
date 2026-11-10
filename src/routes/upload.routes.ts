@@ -3,9 +3,38 @@ import path from 'path';
 import { uploadService } from '../services/upload.service';
 import { chunkService } from '../services/chunk.service';
 import { embeddingService } from '../services/embedding.service';
+import { qdrantService } from '../services/qdrant.service';
 import { config } from '../config';
 
 const router = Router();
+
+// Qdrant health and status endpoint
+router.get('/qdrant/status', async (req: Request, res: Response) => {
+  try {
+    const health = await qdrantService.checkHealth();
+    let collectionStats = null;
+
+    if (health.connected) {
+      try {
+        collectionStats = await qdrantService.getCollectionStats();
+      } catch {
+        // collection may not exist yet
+      }
+    }
+
+    res.json({
+      success: true,
+      health,
+      collection: config.qdrant.collectionName,
+      stats: collectionStats
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      error: err?.message || 'Failed to check Qdrant status'
+    });
+  }
+});
 
 // List uploaded files endpoint
 router.get('/files', (req: Request, res: Response) => {
@@ -61,6 +90,8 @@ router.post('/upload', (req: Request, res: Response) => {
       // Generate vector embeddings using OpenAI text-embedding-3-small
       let embeddingsInfo = undefined;
       let embeddingError: string | null = null;
+      let qdrantResult: any = null;
+      let qdrantError: string | null = null;
 
       if (embeddingService.isConfigured()) {
         try {
@@ -69,6 +100,31 @@ router.post('/upload', (req: Request, res: Response) => {
             folderPath,
             folderName
           );
+
+          // Store generated embeddings into Qdrant vector database
+          if (embeddingsInfo && embeddingsInfo.embeddings?.length > 0) {
+            const isQdrantUp = await qdrantService.isHealthy();
+            if (isQdrantUp) {
+              try {
+                qdrantResult = await qdrantService.storeEmbeddings({
+                  documentId,
+                  fileName: file.originalname || file.filename,
+                  folderName,
+                  embeddings: embeddingsInfo.embeddings,
+                  dimensions: embeddingsInfo.dimensions
+                });
+              } catch (qErr: unknown) {
+                const message = qErr instanceof Error ? qErr.message : String(qErr);
+                console.warn(`[Qdrant] Warning: Failed to store embeddings: ${message}`);
+                qdrantError = message || 'Failed to store embeddings in Qdrant vector DB';
+              }
+            } else {
+              console.warn(
+                `[Qdrant] Database is offline at ${config.qdrant.url}. Start with "npm run qdrant:start" to persist vectors.`
+              );
+              qdrantError = `Qdrant database is offline at ${config.qdrant.url}. Run "npm run qdrant:start" to start the vector DB.`;
+            }
+          }
         } catch (embErr: any) {
           console.error('Failed to generate OpenAI embeddings during upload:', embErr);
           embeddingError = embErr?.message || 'Failed to generate embeddings';
@@ -87,7 +143,11 @@ router.post('/upload', (req: Request, res: Response) => {
 
       let successMessage = `PDF uploaded, text extracted, and split into ${chunksInfo.totalChunks} chunk${chunksInfo.totalChunks === 1 ? '' : 's'}.`;
       if (embeddingsInfo) {
-        successMessage = `PDF uploaded, text extracted, split into ${chunksInfo.totalChunks} chunks, and ${embeddingsInfo.totalEmbeddings} embeddings generated with OpenAI (${embeddingsInfo.model}).`;
+        if (qdrantResult?.success) {
+          successMessage = `PDF uploaded, text split into ${chunksInfo.totalChunks} chunks, ${embeddingsInfo.totalEmbeddings} embeddings generated and stored in Qdrant vector DB (collection: "${qdrantResult.collectionName}").`;
+        } else {
+          successMessage = `PDF uploaded, text extracted, split into ${chunksInfo.totalChunks} chunks, and ${embeddingsInfo.totalEmbeddings} embeddings generated with OpenAI (${embeddingsInfo.model}).`;
+        }
       }
 
       return res.json({
@@ -117,7 +177,22 @@ router.post('/upload', (req: Request, res: Response) => {
           ? 'generated'
           : embeddingError
             ? `error: ${embeddingError}`
-            : 'skipped - OPENAI_API_KEY not configured'
+            : 'skipped - OPENAI_API_KEY not configured',
+        qdrant: qdrantResult
+          ? {
+              status: 'stored',
+              storedCount: qdrantResult.storedCount,
+              collectionName: qdrantResult.collectionName,
+              pointIds: qdrantResult.pointIds
+            }
+          : qdrantError
+            ? {
+                status: 'error',
+                error: qdrantError
+              }
+            : {
+                status: 'skipped'
+              }
       });
     } catch (processError: any) {
       console.error('Error during PDF parsing or chunking:', processError);

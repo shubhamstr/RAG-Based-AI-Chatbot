@@ -44,6 +44,12 @@ export interface AppConfig {
     apiKey: string;
     embeddingModel: string;
   };
+  qdrant: {
+    url: string;
+    port: number;
+    collectionName: string;
+    apiKey?: string;
+  };
 }
 
 export const config: AppConfig = {
@@ -63,6 +69,12 @@ export const config: AppConfig = {
   openai: {
     apiKey: process.env.OPENAI_API_KEY || '',
     embeddingModel: process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small'
+  },
+  qdrant: {
+    url: process.env.QDRANT_URL || 'http://localhost:6002',
+    port: parseInt(process.env.QDRANT_PORT || '6002', 10),
+    collectionName: process.env.QDRANT_COLLECTION_NAME || 'rag_documents',
+    apiKey: process.env.QDRANT_API_KEY ? process.env.QDRANT_API_KEY.trim() : undefined
   }
 };
 

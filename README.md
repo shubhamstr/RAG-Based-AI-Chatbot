@@ -226,7 +226,34 @@ npm -v
    # OpenAI Configuration
    OPENAI_API_KEY=your_openai_api_key_here
    OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+
+   # Qdrant Vector Database Configuration
+   QDRANT_URL=http://localhost:6002
+   QDRANT_PORT=6002
+   QDRANT_COLLECTION_NAME=rag_documents
+   QDRANT_API_KEY=
    ```
+
+### 🐳 Starting Qdrant Vector DB (Docker)
+
+Qdrant runs as a Docker container mapped to host port **6002** (`http://localhost:6002`):
+
+```bash
+# Start Qdrant vector database in the background
+npm run qdrant:start
+
+# Check Qdrant container status
+npm run qdrant:status
+
+# View Qdrant logs
+npm run qdrant:logs
+
+# Stop Qdrant vector database
+npm run qdrant:stop
+```
+
+- **REST API & Web UI Dashboard**: [http://localhost:6002/dashboard](http://localhost:6002/dashboard)
+- **Data Persistence**: Uses Docker named volume `qdrant_storage` so all vector collections survive restarts.
 
 ### Running the Application
 
@@ -271,7 +298,7 @@ The current chat endpoint simulates context-aware RAG responses and is structure
 
 - [x] **Text Extraction**: Integrated `pdf-parse` for automated PDF text extraction.
 - [x] **Chunking & Embeddings**: Text chunking with LangChain `RecursiveCharacterTextSplitter` and vector embeddings using OpenAI `text-embedding-3-small`.
-- [ ] **Vector Store**: Connect vector databases like Pinecone, ChromaDB, Qdrant, or pgvector.
+- [x] **Vector Store**: Qdrant Vector Database in Docker container (port 6002) with automatic collection initialization and point upsert with metadata.
 - [ ] **LLM Generation**: Connect with Google Gemini API, OpenAI GPT-4o, or Anthropic Claude for grounded answers with citation page numbers.
 - [ ] **Session & History**: Persist chat conversations across reloads with multi-session memory.
 

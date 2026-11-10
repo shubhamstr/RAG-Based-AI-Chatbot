@@ -114,6 +114,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 // Start server
 app.listen(config.port, () => {
   console.log(`Server is running at http://localhost:${config.port}`);
+  console.log(`Qdrant Vector DB configured at ${config.qdrant.url} (collection: "${config.qdrant.collectionName}")`);
 });
 
 export default app;
