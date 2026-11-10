@@ -7,6 +7,7 @@ import { Request } from 'express';
 // @ts-ignore
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { config } from '../config';
+import { ChunksInfo } from './chunk.service';
 
 export interface ParsedTextInfo {
   fileName: string;
@@ -25,6 +26,12 @@ export interface UploadedFileInfo {
   size: number;
   uploadedAt: string;
   parsedTextFile?: ParsedTextInfo;
+  chunksInfo?: {
+    fileName: string;
+    relativePath: string;
+    url: string;
+    totalChunks: number;
+  };
 }
 
 export class UploadService {
@@ -178,7 +185,13 @@ export class UploadService {
   public formatUploadedFile(
     file: Express.Multer.File,
     folderName: string,
-    parsedTextInfo?: ParsedTextInfo
+    parsedTextInfo?: ParsedTextInfo,
+    chunksInfo?: ChunksInfo | {
+      fileName: string;
+      relativePath: string;
+      url: string;
+      totalChunks: number;
+    }
   ): UploadedFileInfo {
     const relativePath = folderName ? `${folderName}/${file.filename}` : file.filename;
     const url = `/uploads/${relativePath}`;
@@ -191,7 +204,13 @@ export class UploadService {
       url,
       size: file.size,
       uploadedAt: new Date().toISOString(),
-      parsedTextFile: parsedTextInfo
+      parsedTextFile: parsedTextInfo,
+      chunksInfo: chunksInfo ? {
+        fileName: chunksInfo.fileName,
+        relativePath: chunksInfo.relativePath,
+        url: chunksInfo.url,
+        totalChunks: chunksInfo.totalChunks
+      } : undefined
     };
   }
 
@@ -211,6 +230,21 @@ export class UploadService {
         const subFiles = fs.readdirSync(fullPath, { withFileTypes: true });
         const txtPath = path.join(fullPath, 'extracted_text.txt');
         const hasTxt = fs.existsSync(txtPath);
+        const chunksPath = path.join(fullPath, 'chunks.json');
+        const hasChunks = fs.existsSync(chunksPath);
+        let totalChunks = 0;
+
+        if (hasChunks) {
+          try {
+            const raw = fs.readFileSync(chunksPath, 'utf-8');
+            const parsedChunks = JSON.parse(raw);
+            if (Array.isArray(parsedChunks)) {
+              totalChunks = parsedChunks.length;
+            }
+          } catch {
+            totalChunks = 0;
+          }
+        }
 
         for (const subFile of subFiles) {
           if (subFile.isFile() && subFile.name.toLowerCase().endsWith('.pdf')) {
@@ -231,6 +265,12 @@ export class UploadService {
                 url: `/uploads/${folderName}/extracted_text.txt`,
                 charCount: 0,
                 pageCount: 0
+              } : undefined,
+              chunksInfo: hasChunks ? {
+                fileName: 'chunks.json',
+                relativePath: `${folderName}/chunks.json`,
+                url: `/uploads/${folderName}/chunks.json`,
+                totalChunks
               } : undefined
             });
           }

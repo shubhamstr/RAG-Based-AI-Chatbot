@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
+import path from 'path';
 import { uploadService } from '../services/upload.service';
+import { chunkService } from '../services/chunk.service';
 import { config } from '../config';
 
 const router = Router();
@@ -44,21 +46,44 @@ router.post('/upload', (req: Request, res: Response) => {
 
     try {
       const parsedTextInfo = await uploadService.parseAndSavePdfText(file, folderPath, folderName);
-      const uploadedFile = uploadService.formatUploadedFile(file, folderName, parsedTextInfo);
+
+      // Start chunking immediately after extraction is complete
+      const textFilePath = path.join(folderPath, parsedTextInfo.fileName);
+      const documentId = folderName || file.filename;
+      const chunksInfo = await chunkService.createAndSaveChunks(
+        textFilePath,
+        documentId,
+        folderPath,
+        folderName
+      );
+
+      const uploadedFile = uploadService.formatUploadedFile(
+        file,
+        folderName,
+        parsedTextInfo,
+        chunksInfo
+      );
 
       return res.json({
         success: true,
-        message: 'PDF uploaded and parsed successfully.',
+        message: `PDF uploaded, text extracted, and split into ${chunksInfo.totalChunks} chunk${chunksInfo.totalChunks === 1 ? '' : 's'}.`,
         file: uploadedFile,
         files: [uploadedFile],
         folder: folderName,
-        parsedTextFile: parsedTextInfo
+        parsedTextFile: parsedTextInfo,
+        chunksInfo: {
+          totalChunks: chunksInfo.totalChunks,
+          fileName: chunksInfo.fileName,
+          relativePath: chunksInfo.relativePath,
+          url: chunksInfo.url
+        },
+        chunks: chunksInfo.chunks
       });
-    } catch (parseError: any) {
-      console.error('Error during PDF parsing or writing text file:', parseError);
+    } catch (processError: any) {
+      console.error('Error during PDF parsing or chunking:', processError);
       return res.status(500).json({
         success: false,
-        error: 'Failed to process and parse text from the uploaded PDF.'
+        error: processError?.message || 'Failed to process, extract, or chunk text from the uploaded PDF.'
       });
     }
   });

@@ -166,7 +166,9 @@ export function openFileModal(file) {
   if (modalFileTitle) modalFileTitle.textContent = fileName;
   if (modalFileSubtitle) {
     const sizeStr = formatSize(file.size);
-    modalFileSubtitle.textContent = sizeStr ? `PDF Document &middot; ${sizeStr}` : 'PDF Document';
+    const chunkCount = file.chunksInfo?.totalChunks;
+    const chunkStr = typeof chunkCount === 'number' ? ` &middot; ${chunkCount} chunk${chunkCount === 1 ? '' : 's'}` : '';
+    modalFileSubtitle.innerHTML = sizeStr ? `PDF Document &middot; ${sizeStr}${chunkStr}` : `PDF Document${chunkStr}`;
   }
   if (modalOpenNewtab) {
     modalOpenNewtab.href = fileUrl;
